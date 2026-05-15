@@ -270,8 +270,8 @@ class _LogsScreenState extends State<LogsScreen>
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            border: Border(bottom: BorderSide(color: color.withOpacity(0.3))),
+            color: color.withValues(alpha: 0.1),
+            border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.3))),
           ),
           child: Row(
             children: [

@@ -387,7 +387,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 // ─────────────────────────────────────────────
 class _ThinkingDot extends StatefulWidget {
   final int delay;
-  const _ThinkingDot({required this.delay});
+  // ignore: prefer_const_constructors_in_immutables
+  _ThinkingDot({required this.delay});
 
   @override
   State<_ThinkingDot> createState() => _ThinkingDotState();
@@ -423,7 +424,7 @@ class _ThinkingDotState extends State<_ThinkingDot>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) => Transform.translate(
+      builder: (_, child) => Transform.translate(
         offset: Offset(0, _anim.value),
         child: Container(
           width: 8,

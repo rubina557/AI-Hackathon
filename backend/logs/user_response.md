@@ -1,13 +1,12 @@
-# Final User Response
+# ✅ Booking Confirmed!
 
-Hi! We have found the perfect electrician for you.
+We found the perfect **plumber** for you.
 
-**Booking Confirmed!**
-- **Provider:** Javed Electrician (⭐ 4.6)
-- **Time:** Tomorrow Morning
-- **Location:** G-11
-- **Total Cost:** 1,090 PKR (includes base fee and travel)
+- **Provider:** Kashif Plumber (⭐ 3.9)
+- **Time:** Anytime
+- **Location:** Qasimabad
+- **Total Cost:** 789 PKR
 
-*If you are on a strict budget, we also have Tariq Wiring available for ~640 PKR. Let us know if you'd prefer to switch.*
+*Budget option: Ehsan Pipe Fixer for ~604 PKR if you'd like to save more.*
 
-Javed has been notified and we will send you a reminder 1 hour before he arrives. Your booking ID is **BK-5481**.
+Your Booking ID is **BK-5683**. Kashif has been notified and you will receive a reminder 1 hour before arrival.

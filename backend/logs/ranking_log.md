@@ -1,27 +1,16 @@
 # Ranking Agent Log
+**Timestamp:** 2026-05-15 20:36:57
 
-**Scoring Formula:** `( (1 / (distance + 1)) * 0.4 ) + ( (rating / 5) * 0.4 ) + ( availability_score * 0.2 )`
+**Formula:** `Score = ((1/(dist+1)) × 0.4) + ((rating/5) × 0.4) + (availability × 0.2)`
 
-## Candidate Evaluation
-1. **Javed Electrician (ID 10)**
-   - Distance: 0.8 km -> Score: `(1/1.8)*0.4 = 0.222`
-   - Rating: 4.6 -> Score: `(4.6/5)*0.4 = 0.368`
-   - Availability: 1 slots -> Score: `0.2`
-   - **Total Score: 0.790**
+## Scores
+- **Bilal Plumber** — dist: 3.56 km, rating: 3.8, slots: 5 → Score: **0.5917**
+- **Ehsan Pipe Fixer** — dist: 2.08 km, rating: 3.5, slots: 8 → Score: **0.6099**
+- **Hamza Water Lines** — dist: 1.7 km, rating: 4.8, slots: 2 → Score: **0.7321**
+- **Kashif Plumber** — dist: 0.78 km, rating: 3.9, slots: 4 → Score: **0.7367**
+- **Osman Plumbing Co** — dist: 2.23 km, rating: 4.3, slots: 5 → Score: **0.6678**
+- **Rashid Pipe Pros** — dist: 5.56 km, rating: 4.1, slots: 4 → Score: **0.5890**
+- **Umer Plumbers** — dist: 4.41 km, rating: 4.7, slots: 1 → Score: **0.6499**
 
-2. **Tariq Wiring (ID 19)**
-   - Distance: 0.8 km -> Score: `0.222`
-   - Rating: 3.6 -> Score: `(3.6/5)*0.4 = 0.288`
-   - Availability: 7 slots -> Score: `0.2`
-   - **Total Score: 0.710**
-
-3. **Qasim Spark Services (ID 16)**
-   - Distance: 1.9 km -> Score: `(1/2.9)*0.4 = 0.138`
-   - Rating: 4.5 -> Score: `(4.5/5)*0.4 = 0.360`
-   - Availability: 2 slots -> Score: `0.2`
-   - **Total Score: 0.698**
-
-*(Other candidates scored lower...)*
-
-## Decision
-**Javed Electrician (ID 10)** selected as the top-ranked provider.
+## ✅ Selected Provider
+**Kashif Plumber** (Score: 0.7367)

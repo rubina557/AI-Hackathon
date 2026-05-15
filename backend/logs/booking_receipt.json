@@ -1,18 +1,19 @@
 {
-  "booking_id": "BK-5481",
+  "booking_id": "BK-5683",
   "status": "CONFIRMED",
   "customer": {
-    "location": "G-11",
-    "time_preference": "Tomorrow Morning"
+    "location": "Qasimabad",
+    "time_preference": "Anytime"
   },
   "provider": {
-    "id": 10,
-    "name": "Javed Electrician",
-    "category": "ELECTRICIAN"
+    "id": 11,
+    "name": "Kashif Plumber",
+    "category": "PLUMBER",
+    "rating": 3.9
   },
   "pricing": {
-    "total_pkr": 1090.0,
-    "provider_earnings_pkr": 981.0,
-    "platform_fee_pkr": 109.0
+    "total_pkr": 789.0,
+    "provider_earnings_pkr": 710.1,
+    "platform_fee_pkr": 78.9
   }
 }

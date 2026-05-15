@@ -1,26 +1,19 @@
 # Intent Extraction Log
-
-**Input Phrase:** "mujhe kal subah electrician chahiye G-11 mein"
+**Timestamp:** 2026-05-15 20:36:57
+**Input:** "plumber"
 
 ## Extraction Reasoning
-1. **Service Category:** 'electrician' maps directly to `ELECTRICIAN`.
-2. **Location:** 'G-11' identified as the location text. Mapped to coords (Lat: 25.4050, Lng: 68.3550).
-3. **Time Preference:** 'kal subah' translated to `Tomorrow morning`.
-4. **Urgency:** Implicitly `normal` as no immediate urgency keywords (like "abhi") were used.
+1. **Service Category:** Detected keyword → `PLUMBER`
+2. **Location:** 'Qasimabad' detected → Lat: 25.396, Lng: 68.3283
+3. **Time Preference:** 'Anytime'
+4. **Urgency:** `normal`
 
-## Final Output JSON
+## Final Intent JSON
 ```json
 {
-  "service_category": "ELECTRICIAN",
-  "location": {
-    "text": "G-11",
-    "lat": 25.4050,
-    "lng": 68.3550
-  },
-  "time_preference": {
-    "date": "Tomorrow",
-    "time_of_day": "Morning"
-  },
+  "service_category": "PLUMBER",
+  "location": "Qasimabad",
+  "time_preference": "Anytime",
   "urgency": "normal",
   "confidence_score": 0.95,
   "needs_clarification": false
