@@ -1,0 +1,18 @@
+{
+  "booking_id": "BK-5481",
+  "status": "CONFIRMED",
+  "customer": {
+    "location": "G-11",
+    "time_preference": "Tomorrow Morning"
+  },
+  "provider": {
+    "id": 10,
+    "name": "Javed Electrician",
+    "category": "ELECTRICIAN"
+  },
+  "pricing": {
+    "total_pkr": 1090.0,
+    "provider_earnings_pkr": 981.0,
+    "platform_fee_pkr": 109.0
+  }
+}

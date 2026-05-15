@@ -1,0 +1,22 @@
+[
+  { "id": 1, "name": "Ali Electrician", "category": "ELECTRICIAN", "latitude": 25.3960, "longitude": 68.3283, "rating": 4.5, "skill_level": "expert", "base_rate_pkr": 1000, "available_slots": 3 },
+  { "id": 2, "name": "Bilal Plumber", "category": "PLUMBER", "latitude": 25.3750, "longitude": 68.3550, "rating": 3.8, "skill_level": "intermediate", "base_rate_pkr": 800, "available_slots": 5 },
+  { "id": 3, "name": "Chand AC Repair", "category": "AC TECHNICIAN", "latitude": 25.3900, "longitude": 68.3600, "rating": 4.9, "skill_level": "expert", "base_rate_pkr": 1500, "available_slots": 1 },
+  { "id": 4, "name": "Danish Wiring", "category": "ELECTRICIAN", "latitude": 25.4010, "longitude": 68.3300, "rating": 4.2, "skill_level": "intermediate", "base_rate_pkr": 900, "available_slots": 2 },
+  { "id": 5, "name": "Ehsan Pipe Fixer", "category": "PLUMBER", "latitude": 25.3850, "longitude": 68.3450, "rating": 3.5, "skill_level": "beginner", "base_rate_pkr": 500, "available_slots": 8 },
+  { "id": 6, "name": "Farhan AC Services", "category": "AC TECHNICIAN", "latitude": 25.4150, "longitude": 68.3850, "rating": 4.7, "skill_level": "expert", "base_rate_pkr": 1400, "available_slots": 4 },
+  { "id": 7, "name": "Ghani Electric Works", "category": "ELECTRICIAN", "latitude": 25.3800, "longitude": 68.3700, "rating": 4.0, "skill_level": "intermediate", "base_rate_pkr": 850, "available_slots": 6 },
+  { "id": 8, "name": "Hamza Water Lines", "category": "PLUMBER", "latitude": 25.4100, "longitude": 68.3350, "rating": 4.8, "skill_level": "expert", "base_rate_pkr": 1200, "available_slots": 2 },
+  { "id": 9, "name": "Imran Coolers & AC", "category": "AC TECHNICIAN", "latitude": 25.3710, "longitude": 68.3890, "rating": 4.1, "skill_level": "intermediate", "base_rate_pkr": 1100, "available_slots": 7 },
+  { "id": 10, "name": "Javed Electrician", "category": "ELECTRICIAN", "latitude": 25.3990, "longitude": 68.3490, "rating": 4.6, "skill_level": "expert", "base_rate_pkr": 1050, "available_slots": 1 },
+  { "id": 11, "name": "Kashif Plumber", "category": "PLUMBER", "latitude": 25.3890, "longitude": 68.3290, "rating": 3.9, "skill_level": "intermediate", "base_rate_pkr": 750, "available_slots": 4 },
+  { "id": 12, "name": "Latif AC Master", "category": "AC TECHNICIAN", "latitude": 25.4050, "longitude": 68.3650, "rating": 5.0, "skill_level": "expert", "base_rate_pkr": 1600, "available_slots": 0 },
+  { "id": 13, "name": "Noman Bijli Wala", "category": "ELECTRICIAN", "latitude": 25.3950, "longitude": 68.3800, "rating": 4.4, "skill_level": "expert", "base_rate_pkr": 950, "available_slots": 3 },
+  { "id": 14, "name": "Osman Plumbing Co", "category": "PLUMBER", "latitude": 25.3780, "longitude": 68.3380, "rating": 4.3, "skill_level": "intermediate", "base_rate_pkr": 850, "available_slots": 5 },
+  { "id": 15, "name": "Parvez AC Fix", "category": "AC TECHNICIAN", "latitude": 25.4120, "longitude": 68.3220, "rating": 3.7, "skill_level": "beginner", "base_rate_pkr": 800, "available_slots": 9 },
+  { "id": 16, "name": "Qasim Spark Services", "category": "ELECTRICIAN", "latitude": 25.3880, "longitude": 68.3580, "rating": 4.5, "skill_level": "expert", "base_rate_pkr": 1000, "available_slots": 2 },
+  { "id": 17, "name": "Rashid Pipe Pros", "category": "PLUMBER", "latitude": 25.4180, "longitude": 68.3780, "rating": 4.1, "skill_level": "intermediate", "base_rate_pkr": 900, "available_slots": 4 },
+  { "id": 18, "name": "Sajid AC Experts", "category": "AC TECHNICIAN", "latitude": 25.3720, "longitude": 68.3520, "rating": 4.6, "skill_level": "expert", "base_rate_pkr": 1450, "available_slots": 3 },
+  { "id": 19, "name": "Tariq Wiring", "category": "ELECTRICIAN", "latitude": 25.4080, "longitude": 68.3480, "rating": 3.6, "skill_level": "beginner", "base_rate_pkr": 600, "available_slots": 7 },
+  { "id": 20, "name": "Umer Plumbers", "category": "PLUMBER", "latitude": 25.3920, "longitude": 68.3720, "rating": 4.7, "skill_level": "expert", "base_rate_pkr": 1150, "available_slots": 1 }
+]

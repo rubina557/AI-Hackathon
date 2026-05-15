@@ -1,0 +1,22 @@
+# --- Python / Backend ---
+__pycache__/
+*.pyc
+.venv/
+.env
+logs/*.md
+!logs/.gitkeep
+
+# --- Flutter / Frontend ---
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.lcov
+*.pub
+
+# --- OS / IDE Junk ---
+.DS_Store
+.vscode/
+.idea/
+*.swp
