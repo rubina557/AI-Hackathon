@@ -1,14 +1,15 @@
-# Scheduling Intelligence Log
-**Timestamp:** 2026-05-15 20:36:57
-**Booking ID:** BK-5683
+# Scheduling Log
+**Timestamp:** 2026-05-17 14:38:02
+**Booking ID:** BK-6920
 
-## Slot Check
-- Requested Time: Anytime
-- Provider: Kashif Plumber (Available Slots: 4)
-- Status: ✅ Slot Available
+## Booking Details
+| Field | Value |
+|---|---|
+| Provider | Sana Parveen |
+| Slot | 2026-05-17 10:00 |
+| Status | ✅ Confirmed |
+| Total | PKR 3039.85 |
 
-## Actions Taken
-- Marked slot as "booked" in provider record
-- Booking ID generated: `BK-5683`
-- 30-minute travel buffer applied
-- bookings.csv updated
+## Conflict Check
+- ✅ Slot available — no conflicts detected
+- ⏱ 30-min travel buffer applied around slot

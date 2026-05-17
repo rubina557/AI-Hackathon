@@ -1,0 +1,6 @@
+booking_id,provider_id,provider_name,slot,total_pkr,timestamp,status
+BK-1522,ac_001,Muhammad Ali Shah,2026-05-17 10:00,2475.0,2026-05-17 14:23:57,confirmed
+BK-6469,ac_001,Muhammad Ali Shah,2026-05-17 10:00,2145.0,2026-05-17 14:32:43,confirmed
+BK-7450,ac_001,Muhammad Ali Shah,2026-05-17 10:00,2145.0,2026-05-17 14:33:16,confirmed
+BK-3763,plumb_001,Hassan Ali Tunio,2026-05-17 09:00,1717.1,2026-05-17 14:34:13,confirmed
+BK-6920,beauty_001,Sana Parveen,2026-05-17 10:00,3039.85,2026-05-17 14:38:02,confirmed

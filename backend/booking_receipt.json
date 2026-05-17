@@ -1,0 +1,21 @@
+{
+  "booking_id": "BK-6920",
+  "provider": {
+    "id": "beauty_001",
+    "name": "Sana Parveen"
+  },
+  "slot": "2026-05-17 10:00",
+  "pricing": {
+    "base_fee": 2000,
+    "distance_fee": 163.5,
+    "urgency_fee": 0.0,
+    "complexity_fee": 600.0,
+    "surge_fee": 0.0,
+    "platform_cut": 276.35,
+    "total_pkr": 3039.85,
+    "provider_earnings": 2763.5,
+    "eta_minutes": null
+  },
+  "timestamp": "2026-05-17 14:38:02",
+  "status": "confirmed"
+}

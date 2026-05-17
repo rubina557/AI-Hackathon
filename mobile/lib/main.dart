@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/chat_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'screens/home_screen.dart';
 import 'screens/logs_screen.dart';
 
 void main() {
@@ -12,81 +13,54 @@ class HireInApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'HireIn',
+      title: 'HireIn – Pakistan Services',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF075E54),
+          seedColor: const Color(0xFF1A237E),
           brightness: Brightness.light,
+        ).copyWith(
+          primary: const Color(0xFF1A237E),
+          secondary: const Color(0xFFFFD700),
+          surface: Colors.white,
+          onPrimary: Colors.white,
         ),
         useMaterial3: true,
-        fontFamily: 'Roboto',
+        textTheme: GoogleFonts.outfitTextTheme(),
+        appBarTheme: AppBarTheme(
+          backgroundColor: const Color(0xFF1A237E),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          titleTextStyle: GoogleFonts.outfit(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFFFD700),
+            foregroundColor: const Color(0xFF1A237E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            textStyle: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 16),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+        ),
       ),
       home: const MainNavigator(),
+      routes: {
+        '/logs': (context) => const LogsScreen(),
+        '/home': (context) => const HomeScreen(),
+      },
     );
   }
 }
 
-class MainNavigator extends StatefulWidget {
+class MainNavigator extends StatelessWidget {
   const MainNavigator({super.key});
 
   @override
-  State<MainNavigator> createState() => _MainNavigatorState();
-}
-
-class _MainNavigatorState extends State<MainNavigator> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (idx) => setState(() => _currentPage = idx),
-        children: const [
-          ChatScreen(),
-          LogsScreen(),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF075E54),
-          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentPage,
-          onTap: (idx) {
-            _pageController.animateToPage(
-              idx,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-          },
-          backgroundColor: const Color(0xFF075E54),
-          selectedItemColor: Colors.white,
-          unselectedItemColor: Colors.white60,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_outline),
-              activeIcon: Icon(Icons.chat_bubble),
-              label: 'HireIn Chat',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.analytics_outlined),
-              activeIcon: Icon(Icons.analytics),
-              label: 'Agent Logs',
-            ),
-          ],
-        ),
-      ),
-    );
+    return const HomeScreen();
   }
 }

@@ -1,490 +1,609 @@
-# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-# pyrefly: ignore [missing-import]
 from pydantic import BaseModel
-from typing import List, Optional
-import json
-import math
-import os
-import random
-import string
+from typing import List, Optional, Dict, Any
+import json, math, os, random, string, csv
 from datetime import datetime
 
-app = FastAPI(title="HireIn Service Booking API")
+app = FastAPI(title="HireIn Pakistan Service Orchestrator")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ── PATHS ──────────────────────────────────────────────────────────────────────
+BASE = os.path.dirname(os.path.abspath(__file__))
+PROVIDERS_PATH = os.path.join(BASE, "mock_providers.json")
+BOOKINGS_CSV   = os.path.join(BASE, "bookings.csv")
+LOGS_DIR       = os.path.join(BASE, "logs")
+os.makedirs(LOGS_DIR, exist_ok=True)
 
-# --- DATA MODELS ---
-class IntentRequest(BaseModel):
-    phrase: str
-
-class IntentResponse(BaseModel):
-    service_type: str
-    location: str
-    time: str
-
-class DiscoveryRequest(BaseModel):
-    intent: IntentResponse
-    user_lat: float
-    user_lng: float
-
-class Provider(BaseModel):
-    id: int
-    name: str
-    category: str
-    latitude: float
-    longitude: float
-    rating: float
-    skill_level: str
-    base_rate_pkr: int
-    available_slots: int
-
-class Candidate(Provider):
-    distance_km: float
-
-class DiscoveryResponse(BaseModel):
-    candidates: List[Candidate]
-
-class RankRequest(BaseModel):
-    candidates: List[Candidate]
-
-class BookServiceRequest(BaseModel):
-    phrase: str
-    user_lat: Optional[float] = None
-    user_lng: Optional[float] = None
-
-class BookServiceResponse(BaseModel):
-    intent: IntentResponse
-    selected_provider: Optional[Provider]
-    intent_log: str
-    discovery_log: str
-    ranking_log: str
-
+# ── MODELS ─────────────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     message: str
+    user_id: str = "uid_001"
+    user_lat: float = 25.3960
+    user_lng: float = 68.3578
 
-class ChatResponse(BaseModel):
-    response: str
-    booking_id: Optional[str] = None
-    artifacts: List[str] = []
+class ReviewRequest(BaseModel):
+    booking_id: str
+    rating: float
+    comment: str = ""
 
-# --- CONSTANTS ---
-QASIMABAD_CENTER_LAT = 25.3960
-QASIMABAD_CENTER_LNG = 68.3283
-G11_LAT = 25.4050
-G11_LNG = 68.3550
-MAX_RADIUS_KM = 15.0
+class DisputeRequest(BaseModel):
+    booking_id: str
+    issue: str  # no_show / quality_complaint / price_dispute / overrun / cancellation
 
-LOCATION_MAP = {
-    "qasimabad": (25.3960, 68.3283),
-    "g-11": (25.4050, 68.3550),
-    "g11": (25.4050, 68.3550),
-    "f-7": (25.4150, 68.3700),
-    "i-8": (25.3850, 68.3400),
-    "h-9": (25.3780, 68.3600),
-}
-
-PEAK_HOURS = [(9, 12), (17, 20)]
-
-# --- UTILS ---
+# ── UTILS ──────────────────────────────────────────────────────────────────────
 def load_providers() -> List[dict]:
-    base = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(base, "data", "providers.json")
-    with open(path, "r") as f:
+    with open(PROVIDERS_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def haversine(lat1, lon1, lat2, lon2):
+def save_providers(providers: List[dict]):
+    with open(PROVIDERS_PATH, "w", encoding="utf-8") as f:
+        json.dump(providers, f, indent=2, ensure_ascii=False)
+
+def save_log(filename: str, content: str):
+    with open(os.path.join(LOGS_DIR, filename), "w", encoding="utf-8") as f:
+        f.write(content)
+
+def haversine(lat1, lon1, lat2, lon2) -> float:
     R = 6371.0
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1))*math.cos(math.radians(lat2))*math.sin(dlon/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
-def save_log(filename: str, content: str):
-    base = os.path.dirname(os.path.abspath(__file__))
-    log_dir = os.path.join(base, "logs")
-    os.makedirs(log_dir, exist_ok=True)
-    filepath = os.path.join(log_dir, filename)
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(content)
-    return filepath
+def is_peak_hour() -> bool:
+    h = datetime.now().hour
+    return (9 <= h < 12) or (17 <= h < 20)
 
-def read_log(filename: str) -> str:
-    base = os.path.dirname(os.path.abspath(__file__))
-    filepath = os.path.join(base, "logs", filename)
-    if os.path.exists(filepath):
-        with open(filepath, "r", encoding="utf-8") as f:
-            return f.read()
-    return ""
-
-def generate_booking_id():
+def gen_booking_id() -> str:
     return "BK-" + "".join(random.choices(string.digits, k=4))
 
-def is_peak_hour():
-    hour = datetime.now().hour
-    for (start, end) in PEAK_HOURS:
-        if start <= hour < end:
-            return True
-    return False
+def now_str() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def detect_location(phrase_lower: str):
-    for key, coords in LOCATION_MAP.items():
-        if key in phrase_lower:
-            return key.upper(), coords[0], coords[1]
-    return "Qasimabad", QASIMABAD_CENTER_LAT, QASIMABAD_CENTER_LNG
+# ── AGENT 1: INTENT ────────────────────────────────────────────────────────────
+SERVICE_KEYWORDS = {
+    "AC Technician": ["ac", "air condition", "thanda", "cooling", "inverter ac", "split ac",
+                      "اے سی", "ac wala", "ac waale", "ac technician", "esee"],
+    "Plumber":       ["plumber", "plumbing", "pipe", "pani", "leakage", "naali", "tank",
+                      "geyser", "پلمبر", "paani"],
+    "Electrician":   ["electrician", "bijli", "wiring", "electric", "bijli wala", "light",
+                      "fan", "switch", "برقی", "بجلی"],
+    "Tutor":         ["tutor", "teacher", "parhana", "study", "math", "physics", "chemistry",
+                      "استاد", "tuition", "coaching"],
+    "Mechanic":      ["mechanic", "car", "bike", "motor", "engine", "tyre", "petrol",
+                      "میکینک", "gaadi"],
+    "Beautician":    ["beauty", "makeup", "salon", "mehndi", "facial", "hair", "threading",
+                      "beautician", "بیوٹی"],
+    "Carpenter":     ["carpenter", "furniture", "wood", "door", "cabinet", "بڑھئی", "lakri"],
+    "Painter":       ["painter", "paint", "colour", "rang", "wall", "رنگ", "painting"],
+}
 
-def detect_service(phrase_lower: str):
-    if any(w in phrase_lower for w in ["bijli wala", "electrician", "electric", "wiring", "bijli"]):
-        return "ELECTRICIAN"
-    elif any(w in phrase_lower for w in ["pani", "plumber", "pipe", "leakage", "naali"]):
-        return "PLUMBER"
-    elif any(w in phrase_lower for w in ["ac", "thanda", "cooling", "air condition"]):
-        return "AC TECHNICIAN"
-    return None
+URGENT_WORDS = ["abhi", "urgent", "jaldi", "فوری", "ابھی", "asap", "immediately",
+                "fauri", "turant", "now", "فوراً"]
 
-def detect_time(phrase_lower: str):
-    if any(w in phrase_lower for w in ["abhi", "immediately", "jaldi", "urgent", "now"]):
-        return "Immediately", "urgent"
-    elif any(w in phrase_lower for w in ["kal subah", "tomorrow morning", "subah"]):
-        return "Tomorrow Morning", "normal"
-    elif any(w in phrase_lower for w in ["kal", "tomorrow"]):
-        return "Tomorrow", "normal"
-    elif any(w in phrase_lower for w in ["flexible", "kisi bhi waqt", "anytime"]):
-        return "Flexible", "flexible"
-    return "Anytime", "normal"
+LOCATION_MAP = {
+    "hyder chowk": (25.3960, 68.3578),
+    "haider chowk": (25.3960, 68.3578),
+    "latifabad": (25.4200, 68.3400),
+    "qasimabad": (25.3800, 68.3300),
+    "hirabad": (25.3700, 68.3700),
+    "saddar": (25.3677, 68.3600),
+    "hyderabad": (25.3960, 68.3578),
+}
 
+def agent1_intent(message: str, user_lat: float, user_lng: float) -> dict:
+    ts = now_str()
+    msg_lower = message.lower()
 
-# --------------------------------------------------------------------------- #
-#  POST /chat  —  Full orchestration pipeline
-# --------------------------------------------------------------------------- #
-@app.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
-    phrase = req.message
-    phrase_lower = phrase.lower()
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Detect service
+    detected_service = None
+    for svc, keywords in SERVICE_KEYWORDS.items():
+        if any(kw in msg_lower for kw in keywords):
+            detected_service = svc
+            break
 
-    # ── STEP 1: INTENT ──────────────────────────────────────────────────────
-    service_type = detect_service(phrase_lower)
-    location_text, user_lat, user_lng = detect_location(phrase_lower)
-    time_text, urgency = detect_time(phrase_lower)
+    # Detect location
+    detected_lat, detected_lng = user_lat, user_lng
+    location_name = "User Location"
+    for loc, coords in LOCATION_MAP.items():
+        if loc in msg_lower:
+            detected_lat, detected_lng = coords
+            location_name = loc.title()
+            break
 
-    if not service_type:
-        return ChatResponse(
-            response="Sorry, I could not understand the service you need. Please mention 'electrician', 'plumber', or 'AC technician'.",
-            booking_id=None,
-            artifacts=[]
-        )
+    # Detect urgency
+    is_urgent = any(w in msg_lower for w in URGENT_WORDS)
 
-    confidence_score = 0.95
-    intent_log = f"""# Intent Extraction Log
-**Timestamp:** {now_str}
-**Input:** "{phrase}"
+    # Detect time preference
+    time_pref = "Anytime"
+    if any(w in msg_lower for w in ["kal subah", "tomorrow morning", "subah"]):
+        time_pref = "Tomorrow Morning"
+    elif any(w in msg_lower for w in ["kl raat", "kal raat", "raat me", "tonight", "tomorrow night"]):
+        time_pref = "Tomorrow Night"
+    elif any(w in msg_lower for w in ["aaj", "today", "aj"]):
+        time_pref = "Today"
+    elif is_urgent:
+        time_pref = "Immediately"
 
-## Extraction Reasoning
-1. **Service Category:** Detected keyword → `{service_type}`
-2. **Location:** '{location_text}' detected → Lat: {user_lat}, Lng: {user_lng}
-3. **Time Preference:** '{time_text}'
-4. **Urgency:** `{urgency}`
+    # Budget sensitivity
+    budget_sensitivity = "low"
+    if any(w in msg_lower for w in ["sasta", "cheap", "affordable", "budget", "kam"]):
+        budget_sensitivity = "low"
+    elif any(w in msg_lower for w in ["best", "acha", "quality", "expert"]):
+        budget_sensitivity = "high"
+
+    # Confidence score
+    confidence_score = 0.95 if detected_service else 0.40
+
+    log = f"""# Intent Extraction Log
+**Timestamp:** {ts}
+**Input:** "{message}"
+
+## Detection Results
+| Field | Value |
+|---|---|
+| Service Category | {detected_service or 'Unknown'} |
+| Location | {location_name} ({detected_lat}, {detected_lng}) |
+| Time Preference | {time_pref} |
+| Urgency | {'🚨 URGENT' if is_urgent else 'Scheduled'} |
+| Budget Sensitivity | {budget_sensitivity} |
+| Confidence Score | {confidence_score} |
 
 ## Final Intent JSON
 ```json
 {{
-  "service_category": "{service_type}",
-  "location": "{location_text}",
-  "time_preference": "{time_text}",
-  "urgency": "{urgency}",
-  "confidence_score": {confidence_score},
-  "needs_clarification": false
+  "service_category": "{detected_service}",
+  "location": "{location_name}",
+  "lat": {detected_lat},
+  "lng": {detected_lng},
+  "time_preference": "{time_pref}",
+  "is_urgent": {str(is_urgent).lower()},
+  "budget_sensitivity": "{budget_sensitivity}",
+  "confidence_score": {confidence_score}
 }}
 ```
 """
-    save_log("intent_log.md", intent_log)
+    save_log("intent_log.md", log)
 
-    # ── STEP 2: DISCOVERY ────────────────────────────────────────────────────
+    return {
+        "service_category": detected_service,
+        "location_name": location_name,
+        "lat": detected_lat,
+        "lng": detected_lng,
+        "time_preference": time_pref,
+        "is_urgent": is_urgent,
+        "budget_sensitivity": budget_sensitivity,
+        "confidence_score": confidence_score,
+    }
+
+# ── AGENT 2: DISCOVERY ─────────────────────────────────────────────────────────
+def agent2_discovery(intent: dict) -> List[dict]:
+    ts = now_str()
     providers = load_providers()
-    candidates = []
-    disc_log_lines = [
-        f"# Discovery Agent Log\n**Timestamp:** {now_str}\n\n"
-        f"**Filtering for:** `{service_type}` within {MAX_RADIUS_KM} km of {location_text} ({user_lat}, {user_lng})\n\n"
-        "## Candidate Evaluation\n"
-    ]
+    svc = intent["service_category"]
+    lat, lng = intent["lat"], intent["lng"]
 
-    for p in providers:
-        if p["category"] == service_type:
-            dist = haversine(user_lat, user_lng, p["latitude"], p["longitude"])
-            if dist <= MAX_RADIUS_KM:
-                p_copy = p.copy()
-                p_copy["distance_km"] = round(dist, 2)
-                candidates.append(p_copy)
-                disc_log_lines.append(f"- ✅ **{p['name']}** — {dist:.2f} km (INCLUDED)\n")
-            else:
-                disc_log_lines.append(f"- ❌ {p['name']} — {dist:.2f} km (DROPPED — outside radius)\n")
+    def find_within(radius):
+        found = []
+        for p in providers:
+            if p["category"].lower() == svc.lower():
+                dist = haversine(lat, lng, p["lat"], p["lng"])
+                if dist <= radius:
+                    pc = p.copy()
+                    pc["distance_km"] = round(dist, 2)
+                    found.append(pc)
+        return found
 
-    disc_log_lines.append(f"\n**Total candidates found:** {len(candidates)}")
-    save_log("discovery_log.md", "".join(disc_log_lines))
+    radius = 15.0
+    candidates = find_within(radius)
+    expanded = False
+    if len(candidates) < 3:
+        radius = 25.0
+        candidates = find_within(radius)
+        expanded = True
+
+    log = f"""# Discovery Agent Log
+**Timestamp:** {ts}
+**Service:** {svc} | **Radius:** {radius} km {'(expanded from 15km)' if expanded else ''}
+**User Location:** {lat}, {lng}
+
+## Candidates Found ({len(candidates)})
+| Provider | Distance | Slots | Status |
+|---|---|---|---|
+"""
+    for c in candidates:
+        slots_str = ", ".join(c["available_slots"][:2])
+        log += f"| {c['name']} | {c['distance_km']} km | {slots_str} | ✅ INCLUDED |\n"
 
     if not candidates:
-        return ChatResponse(
-            response=f"Sorry, no {service_type.lower()}s are available near {location_text} right now. Please try again later.",
-            booking_id=None,
-            artifacts=["intent_log.md", "discovery_log.md"]
-        )
+        log += "\n⚠️ **No providers found within 25km. Please try a different location.**\n"
 
-    # ── STEP 3: RANKING ──────────────────────────────────────────────────────
-    scored = []
-    rank_log_lines = [
-        f"# Ranking Agent Log\n**Timestamp:** {now_str}\n\n"
-        "**Formula:** `Score = ((1/(dist+1)) × 0.4) + ((rating/5) × 0.4) + (availability × 0.2)`\n\n"
-        "## Scores\n"
-    ]
-    for c in candidates:
-        dist_factor = 1 / (c["distance_km"] + 1)
-        avail_factor = 1.0 if c["available_slots"] > 0 else 0.0
-        score = (dist_factor * 0.4) + ((c["rating"] / 5.0) * 0.4) + (avail_factor * 0.2)
-        scored.append((score, c))
-        rank_log_lines.append(
-            f"- **{c['name']}** — dist: {c['distance_km']} km, rating: {c['rating']}, "
-            f"slots: {c['available_slots']} → Score: **{score:.4f}**\n"
-        )
+    log += f"\n**Total Candidates:** {len(candidates)}"
+    save_log("discovery_log.md", log)
+    return candidates
 
+# ── AGENT 3: RANKING ───────────────────────────────────────────────────────────
+def agent3_ranking(candidates: List[dict], intent: dict) -> List[dict]:
+    ts = now_str()
+    svc = intent["service_category"]
+
+    SKILL_MAP = {"expert": 10, "intermediate": 6, "basic": 3}
+
+    def score_provider(p):
+        rating_score  = (p["rating"] / 5.0) * 0.25
+        dist_score    = (1 / (p["distance_km"] + 1)) * 0.20
+        skill_val     = SKILL_MAP.get(p.get("skill_level", "basic"), 3)
+        skill_score   = (skill_val / 10.0) * 0.20
+        ontime_score  = p.get("on_time_score", 0.8) * 0.15
+        recency_score = max(0, 1 - p.get("review_recency_days", 30) / 30) * 0.10
+        cancel_score  = (1 - p.get("cancellation_rate", 0.1)) * 0.05
+        verified_score= (1.0 if p.get("verified") else 0.0) * 0.03
+        spec_match    = 0.02 if any(svc.lower() in s.lower() for s in p.get("specializations", [])) else 0.0
+        total = rating_score + dist_score + skill_score + ontime_score + recency_score + cancel_score + verified_score + spec_match
+        return round(total, 4)
+
+    scored = [(score_provider(p), p) for p in candidates]
     scored.sort(key=lambda x: x[0], reverse=True)
-    best_score, best = scored[0]
-    budget_alt = min(candidates, key=lambda x: x["base_rate_pkr"])
 
-    rank_log_lines.append(f"\n## ✅ Selected Provider\n**{best['name']}** (Score: {best_score:.4f})\n")
-    save_log("ranking_log.md", "".join(rank_log_lines))
+    log = f"""# Ranking Engine Log
+**Timestamp:** {ts}
+**Scoring Weights:** Rating(25%) Distance(20%) Skill(20%) OnTime(15%) Recency(10%) Cancellation(5%) Verified(3%) SpecMatch(2%)
 
-    # ── STEP 4: PRICING ──────────────────────────────────────────────────────
-    base_fee = best["base_rate_pkr"]
-    distance_fee = round(best["distance_km"] * 50, 2)
+## Full Scoring Table
+| Rank | Provider | Rating | Dist | Skill | OnTime | Score |
+|---|---|---|---|---|---|---|
+"""
+    for i, (score, p) in enumerate(scored):
+        tag = " 🏆 RECOMMENDED" if i == 0 else ""
+        log += f"| #{i+1} | {p['name']}{tag} | {p['rating']} | {p['distance_km']}km | {p['skill_level']} | {p['on_time_score']} | **{score}** |\n"
 
-    urgency_pct = {"urgent": 0.20, "normal": 0.00, "flexible": -0.10}[urgency]
-    complexity_pct = 0.0   # basic task assumed
-    surge_pct = 0.10 if is_peak_hour() else 0.0
-    loyalty_pct = 0.0      # new user
+    save_log("ranking_log.md", log)
+    return [p for _, p in scored]
 
-    subtotal = base_fee + distance_fee
-    adjustments = subtotal * (urgency_pct + complexity_pct + surge_pct - loyalty_pct)
-    total = round(subtotal + adjustments, 2)
-    platform_cut = round(total * 0.10, 2)
-    provider_earnings = round(total - platform_cut, 2)
+# ── AGENT 4: PRICING ───────────────────────────────────────────────────────────
+def agent4_pricing(provider: dict, intent: dict) -> dict:
+    ts = now_str()
+    dist = provider["distance_km"]
+    is_urgent = intent["is_urgent"]
+    skill = provider.get("skill_level", "basic")
 
-    budget_total = round(budget_alt["base_rate_pkr"] + budget_alt["distance_km"] * 50, 2) if "distance_km" in budget_alt else None
+    base_fee      = provider["base_rate_pkr"]
+    distance_fee  = round(dist * 50, 2)
+    urgency_fee   = round(base_fee * 0.20, 2) if is_urgent else 0.0
+    complexity_fee= round(base_fee * (0.15 if skill == "intermediate" else 0.30 if skill == "expert" else 0.0), 2)
+    surge_fee     = round(base_fee * 0.10, 2) if is_peak_hour() else 0.0
+    subtotal      = base_fee + distance_fee + urgency_fee + complexity_fee + surge_fee
+    platform_cut  = round(subtotal * 0.10, 2)
+    total         = round(subtotal + platform_cut, 2)
+    provider_earn = round(total - platform_cut, 2)
+    eta_minutes   = int((dist / 30.0) * 60) if is_urgent else None
 
-    pricing_log = f"""# Dynamic Pricing Log
-**Timestamp:** {now_str}
-**Provider:** {best['name']} | **Base Rate:** {base_fee} PKR
+    log = f"""# Pricing Engine Log
+**Timestamp:** {ts}
+**Provider:** {provider['name']} | **Distance:** {dist} km
 
-## Line-Item Breakdown
-| Component | Amount |
+## Pricing Breakdown
+| Item | Amount (PKR) |
 |---|---|
-| Base Fee | {base_fee:.2f} PKR |
-| Distance Fee ({best['distance_km']} km × 50) | {distance_fee:.2f} PKR |
-| Urgency Adjustment ({urgency}, {urgency_pct*100:.0f}%) | {subtotal*urgency_pct:.2f} PKR |
-| Complexity Adjustment (basic, 0%) | 0.00 PKR |
-| Demand Surge ({'Peak' if surge_pct else 'Off-Peak'}, {surge_pct*100:.0f}%) | {subtotal*surge_pct:.2f} PKR |
-| Loyalty Discount (New User, 0%) | 0.00 PKR |
-| **TOTAL** | **{total:.2f} PKR** |
-
-## Financial Split
-- Platform Cut (10%): {platform_cut:.2f} PKR
-- **Provider Earnings:** {provider_earnings:.2f} PKR
-
-## Budget Alternative
-- {budget_alt['name']} → ~{budget_total:.2f} PKR (budget option)
-
-*Fairness Note: This transparent breakdown ensures the provider earns a fair wage for their travel and skills while giving the user predictable upfront costs.*
+| Base Fee | {base_fee} |
+| Distance Fee ({dist} km × 50) | {distance_fee} |
+| Urgency Fee (20%) | {urgency_fee} |
+| Complexity Fee | {complexity_fee} |
+| Demand Surge (Peak Hour) | {surge_fee} |
+| **Subtotal** | **{subtotal}** |
+| Platform Cut (10%) | {platform_cut} |
+| **Total** | **{total}** |
+| Provider Earnings | {provider_earn} |
+{'| ETA | ~' + str(eta_minutes) + ' mins |' if eta_minutes else ''}
 """
-    save_log("pricing_log.md", pricing_log)
+    save_log("pricing_log.md", log)
 
-    # ── STEP 5: SCHEDULING ────────────────────────────────────────────────────
-    booking_id = generate_booking_id()
-    slot_available = best["available_slots"] > 0
-
-    sched_log = f"""# Scheduling Intelligence Log
-**Timestamp:** {now_str}
-**Booking ID:** {booking_id}
-
-## Slot Check
-- Requested Time: {time_text}
-- Provider: {best['name']} (Available Slots: {best['available_slots']})
-- Status: {'✅ Slot Available' if slot_available else '❌ No Slots — Added to Waitlist'}
-
-## Actions Taken
-- Marked slot as "booked" in provider record
-- Booking ID generated: `{booking_id}`
-- 30-minute travel buffer applied
-- bookings.csv updated
-"""
-    save_log("scheduling_log.md", sched_log)
-
-    booking_receipt = {
-        "booking_id": booking_id,
-        "status": "CONFIRMED" if slot_available else "WAITLISTED",
-        "customer": {"location": location_text, "time_preference": time_text},
-        "provider": {"id": best["id"], "name": best["name"], "category": best["category"], "rating": best["rating"]},
-        "pricing": {"total_pkr": total, "provider_earnings_pkr": provider_earnings, "platform_fee_pkr": platform_cut}
+    return {
+        "base_fee": base_fee,
+        "distance_fee": distance_fee,
+        "urgency_fee": urgency_fee,
+        "complexity_fee": complexity_fee,
+        "surge_fee": surge_fee,
+        "platform_cut": platform_cut,
+        "total_pkr": total,
+        "provider_earnings": provider_earn,
+        "eta_minutes": eta_minutes,
     }
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    receipt_path = os.path.join(base_dir, "logs", "booking_receipt.json")
-    os.makedirs(os.path.dirname(receipt_path), exist_ok=True)
-    with open(receipt_path, "w", encoding="utf-8") as f:
-        json.dump(booking_receipt, f, indent=2)
 
-    # ── STEP 6: QUALITY & FOLLOWUP ────────────────────────────────────────────
-    quality_log = f"""# Service Quality Loop Log
-**Booking ID:** {booking_id}
-**Provider:** {best['name']}
+# ── AGENT 5: MATCHMAKER ────────────────────────────────────────────────────────
+def agent5_matchmaker(ranked: List[dict], pricing_list: List[dict], intent: dict) -> dict:
+    ts = now_str()
+    winner = ranked[0]
+    runner_up = ranked[1] if len(ranked) > 1 else None
 
-## Simulated Service Timeline
-- En-route update: "{best['name'].split()[0]} is on his way. ETA: 25 minutes."
-- Service completion: Job done ✅ | Photo: photo_001.jpg | Time: 45 min
-- Feedback collected: Rating 5/5 — "Arrived on time and fixed the issue quickly."
+    # Dynamic badges
+    badges = list(winner.get("badges", []))
+    if winner["rating"] >= 4.7 and "Top Rated" not in badges:
+        badges.append("Top Rated")
+    if winner.get("skill_level") == "expert" and "Expert Level" not in badges:
+        badges.append("Expert Level")
+    if winner.get("on_time_score", 0) >= 0.90 and "Highly Reliable" not in badges:
+        badges.append("Highly Reliable")
+    if winner.get("verified") and "Verified ✓" not in badges:
+        badges.append("Verified ✓")
 
-## Rating Update
-- new_rating = ({best['rating']} × prev_count + 5.0) / (prev_count + 1)
-- Provider profile updated. review_recency_days reset to 0.
+    # Reasoning
+    reason_parts = [f"{winner['name']} was selected"]
+    if runner_up:
+        reason_parts.append(f"over {runner_up['name']} (rated {runner_up['rating']})")
+    reason_parts.append(f"because they have a {winner['rating']} rating")
+    if winner.get("verified"):
+        reason_parts.append("are verified")
+    if winner.get("skill_level") == "expert":
+        reason_parts.append("and are an expert-level technician")
+    reasoning = " ".join(reason_parts) + "."
+
+    # Affordable badge — lowest price?
+    prices = [p["total_pkr"] for p in pricing_list]
+    if pricing_list and pricing_list[0]["total_pkr"] == min(prices):
+        if "Affordable" not in badges:
+            badges.append("Affordable")
+
+    # Fastest ETA badge
+    if intent["is_urgent"] and pricing_list:
+        etas = [p.get("eta_minutes") for p in pricing_list if p.get("eta_minutes")]
+        if etas and pricing_list[0].get("eta_minutes") == min(etas):
+            badges.append("Fastest ETA")
+
+    log = f"""# Matchmaker Log
+**Timestamp:** {ts}
+
+## Winner: {winner['name']}
+**Reasoning:** {reasoning}
+
+## Badges Assigned
+{', '.join(badges)}
+
+## Alternatives Considered
+{chr(10).join([f'- {r["name"]} (Rating: {r["rating"]}, Dist: {r["distance_km"]}km)' for r in ranked[1:4]])}
 """
-    save_log("quality_log.md", quality_log)
+    save_log("matchmaker_log.md", log)
+    winner["badges"] = badges
+    winner["reasoning"] = reasoning
+    return winner
 
-    followup_log = f"""# Followup Reminders Log
+# ── AGENT 6: LOCK & BOOK ───────────────────────────────────────────────────────
+def agent6_book(winner: dict, pricing: dict, intent: dict) -> dict:
+    ts = now_str()
+    booking_id = gen_booking_id()
+    slot = winner["available_slots"][0] if winner["available_slots"] else "2026-05-17 10:00"
+
+    # Save to CSV
+    file_exists = os.path.exists(BOOKINGS_CSV)
+    with open(BOOKINGS_CSV, "a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["booking_id", "provider_id", "provider_name", "slot", "total_pkr", "timestamp", "status"])
+        writer.writerow([booking_id, winner["id"], winner["name"], slot, pricing["total_pkr"], ts, "confirmed"])
+
+    # Save receipt
+    receipt = {
+        "booking_id": booking_id,
+        "provider": {"id": winner["id"], "name": winner["name"]},
+        "slot": slot,
+        "pricing": pricing,
+        "timestamp": ts,
+        "status": "confirmed",
+    }
+    with open(os.path.join(BASE, "booking_receipt.json"), "w", encoding="utf-8") as f:
+        json.dump(receipt, f, indent=2)
+
+    log = f"""# Scheduling Log
+**Timestamp:** {ts}
 **Booking ID:** {booking_id}
+
+## Booking Details
+| Field | Value |
+|---|---|
+| Provider | {winner['name']} |
+| Slot | {slot} |
+| Status | ✅ Confirmed |
+| Total | PKR {pricing['total_pkr']} |
+
+## Conflict Check
+- ✅ Slot available — no conflicts detected
+- ⏱ 30-min travel buffer applied around slot
+"""
+    save_log("scheduling_log.md", log)
+    return {"booking_id": booking_id, "slot": slot, "status": "confirmed"}
+
+# ── AGENT 7: FOLLOW-UP ─────────────────────────────────────────────────────────
+def agent7_followup(booking: dict, winner: dict, pricing: dict) -> dict:
+    ts = now_str()
+    bid = booking["booking_id"]
+    slot = booking["slot"]
+    eta = pricing.get("eta_minutes")
+
+    notifications = [
+        {"trigger": "immediate", "message": f"✅ Booking confirmed! {winner['name']} arriving at {slot}. ID: {bid}"},
+        {"trigger": "T-1hr",     "message": f"⏰ Your technician arrives in 1 hour. Be ready!"},
+        {"trigger": "en_route",  "message": f"🚗 {winner['name']} is on the way!" + (f" ETA: {eta} mins" if eta else "")},
+        {"trigger": "complete",  "message": f"⭐ How was your service? Rate {winner['name']} to help others!"},
+    ]
+
+    log = f"""# Follow-up & Tracking Log
+**Timestamp:** {ts}
+**Booking:** {bid}
 
 ## Notification Timeline
-1. `[IMMEDIATE]` Confirmation: "Booking confirmed! {best['name']} at {time_text}. ID: {booking_id}"
-2. `[T-1HR]` Reminder: "Your {service_type.lower()} arrives in 1 hour."
-3. `[EN-ROUTE]` Alert: "{best['name'].split()[0]} is on the way! ETA: 25 min."
-4. `[POST-SERVICE]` Feedback: "How was your service? Rate {best['name'].split()[0]}."
+| Trigger | Message |
+|---|---|
 """
-    save_log("followup_log.md", followup_log)
+    for n in notifications:
+        log += f"| {n['trigger']} | {n['message']} |\n"
 
-    # ── STEP 7: USER RESPONSE ─────────────────────────────────────────────────
-    user_response = f"""# ✅ Booking Confirmed!
+    save_log("followup_log.md", log)
+    return {"notifications": notifications}
 
-We found the perfect **{service_type.lower()}** for you.
+# ── AGENT 8: REVIEW ────────────────────────────────────────────────────────────
+def agent8_review(booking_id: str, rating: float, comment: str) -> dict:
+    ts = now_str()
+    providers = load_providers()
 
-- **Provider:** {best['name']} (⭐ {best['rating']})
-- **Time:** {time_text}
-- **Location:** {location_text}
-- **Total Cost:** {total:,.0f} PKR
+    # Find provider from bookings CSV
+    provider_id = None
+    if os.path.exists(BOOKINGS_CSV):
+        with open(BOOKINGS_CSV, "r", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if row["booking_id"] == booking_id:
+                    provider_id = row["provider_id"]
+                    break
 
-*Budget option: {budget_alt['name']} for ~{budget_total:.0f} PKR if you'd like to save more.*
+    updated = False
+    for p in providers:
+        if p["id"] == provider_id:
+            old_rating = p["rating"]
+            count = p["review_count"]
+            p["rating"] = round((old_rating * count + rating) / (count + 1), 2)
+            p["review_count"] = count + 1
+            p["review_recency_days"] = 0
+            # Recalculate badges
+            new_badges = []
+            if p["rating"] >= 4.7: new_badges.append("Top Rated")
+            if p["skill_level"] == "expert": new_badges.append("Expert Level")
+            if p["on_time_score"] >= 0.90: new_badges.append("Highly Reliable")
+            if p["verified"]: new_badges.append("Verified ✓")
+            p["badges"] = new_badges
+            updated = True
+            break
 
-Your Booking ID is **{booking_id}**. {best['name'].split()[0]} has been notified and you will receive a reminder 1 hour before arrival.
+    if updated:
+        save_providers(providers)
+
+    log = f"""# Quality Review Log
+**Timestamp:** {ts}
+**Booking:** {booking_id} | **Rating:** {rating}/5 | **Comment:** "{comment}"
+**Provider Updated:** {'✅ ' + provider_id if updated else '⚠️ Provider not found'}
 """
-    save_log("user_response.md", user_response)
+    save_log("quality_log.md", log)
+    return {"status": "updated" if updated else "provider_not_found", "new_rating": rating}
 
-    # Plain-text version for the chat bubble
-    plain_response = (
-        f"✅ Booking Confirmed! {best['name']} (⭐ {best['rating']}) will come to {location_text} "
-        f"{time_text.lower()} for {total:,.0f} PKR.\n\n"
-        f"Booking ID: {booking_id}\n\n"
-        f"💡 Budget option: {budget_alt['name']} for ~{budget_total:.0f} PKR."
-    )
+# ── AGENT 9: DISPUTE ───────────────────────────────────────────────────────────
+def agent9_dispute(booking_id: str, issue: str) -> dict:
+    ts = now_str()
+    RESOLUTIONS = {
+        "no_show":           {"action": "Full refund issued. Provider flagged.", "refund_pct": 100, "flag": True},
+        "quality_complaint": {"action": "Partial refund (50%) issued. Note added to profile.", "refund_pct": 50, "flag": False},
+        "price_dispute":     {"action": "Receipt reviewed. Decision pending.", "refund_pct": 0, "flag": False},
+        "overrun":           {"action": "Time overrun noted. Provider warned.", "refund_pct": 10, "flag": False},
+        "cancellation":      {"action": "Cancellation fee applied per policy.", "refund_pct": 0, "flag": False},
+    }
+    resolution = RESOLUTIONS.get(issue, {"action": "Escalated to human review.", "refund_pct": 0, "flag": False})
 
-    artifact_files = [
-        f for f in os.listdir(os.path.join(base_dir, "logs"))
-        if f.endswith(".md")
+    log = f"""# Dispute Resolution Log
+**Timestamp:** {ts}
+**Booking:** {booking_id} | **Issue:** {issue}
+
+## Auto-Resolution
+- **Action:** {resolution['action']}
+- **Refund:** {resolution['refund_pct']}%
+- **Provider Flagged:** {resolution['flag']}
+- **Risk Score Updated:** +0.15
+"""
+    save_log("dispute_log.md", log)
+    return {"booking_id": booking_id, "issue": issue, "resolution": resolution["action"], "refund_pct": resolution["refund_pct"]}
+
+# ── ENDPOINTS ──────────────────────────────────────────────────────────────────
+@app.post("/chat")
+def chat(req: ChatRequest):
+    msg = req.message
+
+    # Agent 1
+    intent = agent1_intent(msg, req.user_lat, req.user_lng)
+
+    if not intent["service_category"]:
+        # Detect input language for response
+        has_urdu = any(c > '\u0600' for c in msg)
+        if intent["confidence_score"] < 0.75:
+            clarify = "آپ کو کون سی سروس چاہیے؟ مثال: AC، پلمبر، الیکٹریشن" if has_urdu else \
+                      "Could not understand the service needed. Please mention: AC Technician, Plumber, Electrician, Tutor, Mechanic, Beautician, Carpenter, or Painter."
+            return {"response": clarify, "booking_id": None, "provider": None, "pricing": None,
+                    "reasoning": None, "is_urgent": False, "artifacts": ["intent_log.md"]}
+
+    # Agent 2
+    candidates = agent2_discovery(intent)
+    if not candidates:
+        return {"response": f"معذرت! آپ کے قریب کوئی {intent['service_category']} دستیاب نہیں۔ بعد میں کوشش کریں۔",
+                "booking_id": None, "provider": None, "pricing": None,
+                "reasoning": None, "is_urgent": intent["is_urgent"],
+                "artifacts": ["intent_log.md", "discovery_log.md"]}
+
+    # Agent 3
+    ranked = agent3_ranking(candidates, intent)
+
+    # Agent 4 — price all top 5
+    pricing_list = [agent4_pricing(p, intent) for p in ranked[:5]]
+
+    # Agent 5
+    winner = agent5_matchmaker(ranked[:5], pricing_list, intent)
+    pricing = pricing_list[0]
+
+    # Agent 6
+    booking = agent6_book(winner, pricing, intent)
+
+    # Agent 7
+    followup = agent7_followup(booking, winner, pricing)
+
+    # Build response
+    artifacts = [f for f in os.listdir(LOGS_DIR) if f.endswith(".md")]
+    other_options = [
+        {
+            "id": p["id"], "name": p["name"], "rating": p["rating"],
+            "distance_km": p["distance_km"], "skill_level": p["skill_level"],
+            "base_rate_pkr": p["base_rate_pkr"], "badges": p.get("badges", []),
+            "available_slots": p.get("available_slots", []),
+        }
+        for p in ranked[1:4]
     ]
 
-    return ChatResponse(
-        response=plain_response,
-        booking_id=booking_id,
-        artifacts=artifact_files
-    )
+    return {
+        "response": f"Booking confirmed! {winner['name']} will arrive at {booking['slot']}.",
+        "booking_id": booking["booking_id"],
+        "provider": {
+            "id": winner["id"], "name": winner["name"], "category": winner["category"],
+            "rating": winner["rating"], "review_count": winner["review_count"],
+            "skill_level": winner["skill_level"], "distance_km": winner["distance_km"],
+            "specializations": winner.get("specializations", []),
+            "badges": winner.get("badges", []), "verified": winner.get("verified", False),
+            "available_slots": winner.get("available_slots", []),
+            "languages": winner.get("languages", []),
+        },
+        "pricing": pricing,
+        "reasoning": winner.get("reasoning", ""),
+        "is_urgent": intent["is_urgent"],
+        "slot": booking["slot"],
+        "notifications": followup["notifications"],
+        "other_options": other_options,
+        "artifacts": sorted(artifacts),
+    }
 
-
-# --------------------------------------------------------------------------- #
-#  GET /artifacts  —  Returns contents of all .md log files
-# --------------------------------------------------------------------------- #
 @app.get("/artifacts")
 def get_artifacts():
-    base = os.path.dirname(os.path.abspath(__file__))
-    log_dir = os.path.join(base, "logs")
     result = []
-    if not os.path.exists(log_dir):
-        return {"artifacts": []}
-    for fname in sorted(os.listdir(log_dir)):
-        if fname.endswith(".md"):
-            fpath = os.path.join(log_dir, fname)
-            with open(fpath, "r", encoding="utf-8") as f:
-                result.append({"filename": fname, "content": f.read()})
+    if os.path.exists(LOGS_DIR):
+        for fname in sorted(os.listdir(LOGS_DIR)):
+            if fname.endswith(".md"):
+                fpath = os.path.join(LOGS_DIR, fname)
+                with open(fpath, "r", encoding="utf-8") as f:
+                    result.append({"filename": fname, "content": f.read()})
     return {"artifacts": result}
 
+@app.get("/providers")
+def get_providers():
+    return {"providers": load_providers()}
 
-# --------------------------------------------------------------------------- #
-#  Legacy endpoints (kept for compatibility)
-# --------------------------------------------------------------------------- #
-@app.post("/agent/intent", response_model=IntentResponse)
-def intent_agent(req: IntentRequest):
-    phrase_lower = req.phrase.lower()
-    service_type = detect_service(phrase_lower) or "UNKNOWN"
-    location_text, _, _ = detect_location(phrase_lower)
-    time_text, _ = detect_time(phrase_lower)
-    log = f"# Intent Parsing Log\n- Phrase: {req.phrase}\n- Service: {service_type}\n- Location: {location_text}\n- Time: {time_text}\n"
-    save_log("intent_log.md", log)
-    return IntentResponse(service_type=service_type, location=location_text, time=time_text)
+@app.post("/review")
+def review(req: ReviewRequest):
+    result = agent8_review(req.booking_id, req.rating, req.comment)
+    return result
 
-@app.post("/agent/discover", response_model=DiscoveryResponse)
-def discovery_agent(req: DiscoveryRequest):
-    providers = load_providers()
-    candidates = []
-    log = f"# Discovery Log\nCategory: {req.intent.service_type}\n\n"
-    for p in providers:
-        if p["category"] == req.intent.service_type:
-            dist = haversine(req.user_lat, req.user_lng, p["latitude"], p["longitude"])
-            if dist <= MAX_RADIUS_KM:
-                p_copy = p.copy()
-                p_copy["distance_km"] = round(dist, 2)
-                candidates.append(Candidate(**p_copy))
-                log += f"- {p['name']} ({dist:.2f} km) INCLUDED\n"
-    save_log("discovery_log.md", log)
-    return DiscoveryResponse(candidates=candidates)
-
-@app.post("/agent/rank", response_model=Provider)
-def ranking_agent(req: RankRequest):
-    if not req.candidates:
-        raise HTTPException(status_code=404, detail="No candidates to rank")
-    best_candidate = None
-    best_score = -1.0
-    log = "# Ranking Log\n\n"
-    for c in req.candidates:
-        dist_factor = 1 / (c.distance_km + 1)
-        avail_factor = 1.0 if c.available_slots > 0 else 0.0
-        score = (dist_factor * 0.4) + ((c.rating / 5.0) * 0.4) + (avail_factor * 0.2)
-        log += f"- {c.name}: {score:.4f}\n"
-        if score > best_score:
-            best_score = score
-            best_candidate = c
-    log += f"\nSelected: {best_candidate.name}\n"
-    save_log("ranking_log.md", log)
-    return Provider(**best_candidate.model_dump())
-
-@app.post("/book-service", response_model=BookServiceResponse)
-def book_service(req: BookServiceRequest):
-    lat = req.user_lat if req.user_lat is not None else QASIMABAD_CENTER_LAT
-    lng = req.user_lng if req.user_lng is not None else QASIMABAD_CENTER_LNG
-    intent_res = intent_agent(IntentRequest(phrase=req.phrase))
-    discovery_res = discovery_agent(DiscoveryRequest(intent=intent_res, user_lat=lat, user_lng=lng))
-    if not discovery_res.candidates:
-        return BookServiceResponse(
-            intent=intent_res, selected_provider=None,
-            intent_log=read_log("intent_log.md"),
-            discovery_log=read_log("discovery_log.md"),
-            ranking_log="No candidates found."
-        )
-    best_provider = ranking_agent(RankRequest(candidates=discovery_res.candidates))
-    return BookServiceResponse(
-        intent=intent_res, selected_provider=best_provider,
-        intent_log=read_log("intent_log.md"),
-        discovery_log=read_log("discovery_log.md"),
-        ranking_log=read_log("ranking_log.md")
-    )
+@app.post("/dispute")
+def dispute(req: DisputeRequest):
+    result = agent9_dispute(req.booking_id, req.issue)
+    return result

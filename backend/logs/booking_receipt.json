@@ -1,19 +1,19 @@
 {
-  "booking_id": "BK-5683",
+  "booking_id": "BK-1889",
   "status": "CONFIRMED",
   "customer": {
     "location": "Qasimabad",
-    "time_preference": "Anytime"
+    "time_preference": "Tomorrow"
   },
   "provider": {
-    "id": 11,
-    "name": "Kashif Plumber",
-    "category": "PLUMBER",
-    "rating": 3.9
+    "id": 3,
+    "name": "Chand AC Repair",
+    "category": "AC TECHNICIAN",
+    "rating": 4.9
   },
   "pricing": {
-    "total_pkr": 789.0,
-    "provider_earnings_pkr": 710.1,
-    "platform_fee_pkr": 78.9
+    "total_pkr": 1662.5,
+    "provider_earnings_pkr": 1496.25,
+    "platform_fee_pkr": 166.25
   }
 }

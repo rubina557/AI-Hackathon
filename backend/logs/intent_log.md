@@ -1,21 +1,27 @@
 # Intent Extraction Log
-**Timestamp:** 2026-05-15 20:36:57
-**Input:** "plumber"
+**Timestamp:** 2026-05-17 14:38:02
+**Input:** "Mujhe beautician chahiye"
 
-## Extraction Reasoning
-1. **Service Category:** Detected keyword → `PLUMBER`
-2. **Location:** 'Qasimabad' detected → Lat: 25.396, Lng: 68.3283
-3. **Time Preference:** 'Anytime'
-4. **Urgency:** `normal`
+## Detection Results
+| Field | Value |
+|---|---|
+| Service Category | Beautician |
+| Location | User Location (25.396, 68.3578) |
+| Time Preference | Anytime |
+| Urgency | Scheduled |
+| Budget Sensitivity | low |
+| Confidence Score | 0.95 |
 
 ## Final Intent JSON
 ```json
 {
-  "service_category": "PLUMBER",
-  "location": "Qasimabad",
+  "service_category": "Beautician",
+  "location": "User Location",
+  "lat": 25.396,
+  "lng": 68.3578,
   "time_preference": "Anytime",
-  "urgency": "normal",
-  "confidence_score": 0.95,
-  "needs_clarification": false
+  "is_urgent": false,
+  "budget_sensitivity": "low",
+  "confidence_score": 0.95
 }
 ```

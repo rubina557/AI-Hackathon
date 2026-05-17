@@ -1,23 +1,17 @@
-# Dynamic Pricing Log
-**Timestamp:** 2026-05-15 20:36:57
-**Provider:** Kashif Plumber | **Base Rate:** 750 PKR
+# Pricing Engine Log
+**Timestamp:** 2026-05-17 14:38:02
+**Provider:** Hina Abro | **Distance:** 3.16 km
 
-## Line-Item Breakdown
-| Component | Amount |
+## Pricing Breakdown
+| Item | Amount (PKR) |
 |---|---|
-| Base Fee | 750.00 PKR |
-| Distance Fee (0.78 km × 50) | 39.00 PKR |
-| Urgency Adjustment (normal, 0%) | 0.00 PKR |
-| Complexity Adjustment (basic, 0%) | 0.00 PKR |
-| Demand Surge (Off-Peak, 0%) | 0.00 PKR |
-| Loyalty Discount (New User, 0%) | 0.00 PKR |
-| **TOTAL** | **789.00 PKR** |
+| Base Fee | 1000 |
+| Distance Fee (3.16 km × 50) | 158.0 |
+| Urgency Fee (20%) | 0.0 |
+| Complexity Fee | 150.0 |
+| Demand Surge (Peak Hour) | 0.0 |
+| **Subtotal** | **1308.0** |
+| Platform Cut (10%) | 130.8 |
+| **Total** | **1438.8** |
+| Provider Earnings | 1308.0 |
 
-## Financial Split
-- Platform Cut (10%): 78.90 PKR
-- **Provider Earnings:** 710.10 PKR
-
-## Budget Alternative
-- Ehsan Pipe Fixer → ~604.00 PKR (budget option)
-
-*Fairness Note: This transparent breakdown ensures the provider earns a fair wage for their travel and skills while giving the user predictable upfront costs.*
