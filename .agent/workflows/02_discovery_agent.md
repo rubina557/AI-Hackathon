@@ -1,4 +1,16 @@
-# Agent 2: Bounding Box Geospatial Discovery
-- Read location_query from Agent 1 and parse it into absolute coordinate nodes (Hyder Chowk = Lat 25.3931, Lng 68.3722).
-- Filter entries in `mock_providers.json` by matching service categories.
-- Calculate radial distances using the Haversine equation. Set an initial lookup radius parameter of 15km. If results are less than 3, scale the boundary up to 25km automatically.
+name: "provider-discovery"
+description: "Finds matching providers from Firestore/mock data"
+
+Steps:
+1. Read intent JSON from Agent 1
+2. Filter mock_providers.json where category matches service
+3. Calculate Haversine distance from user coordinates
+4. Filter to providers within 15km AND available in requested time
+5. If zero found: expand to 25km
+6. If still zero: set no_provider_found=true, suggest next morning slot
+7. Return max 10 candidate providers with distances
+8. Create artifact: logs/discovery_log.md showing:
+   - Search criteria used
+   - All candidates found with distances
+   - Fallback logic triggered (if any)
+   - Timestamp

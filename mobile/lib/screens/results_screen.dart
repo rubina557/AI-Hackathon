@@ -1,21 +1,100 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/provider_card.dart';
-import 'booking_screen.dart';
+import 'payment_screen.dart';
 
 class ResultsScreen extends StatelessWidget {
   final Map<String, dynamic> data;
   const ResultsScreen({super.key, required this.data});
 
-  void _goBook(BuildContext context, Map<String, dynamic> provider) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BookingScreen(
-          data: data,
-          selectedProvider: provider,
-        ),
+  void _showSlotPicker(BuildContext context, Map<String, dynamic> provider) {
+    final List<String> slots = List<String>.from(provider['available_slots'] ?? []);
+    if (slots.isEmpty) slots.add("2026-05-17 10:00");
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Select a Time Slot',
+                  style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFF1A237E))),
+              const SizedBox(height: 8),
+              Text('وقت منتخب کریں',
+                  style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade600)),
+              const SizedBox(height: 24),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  ...slots.map((slot) => ActionChip(
+                    label: Text(slot, style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: const Color(0xFF1A237E))),
+                    backgroundColor: const Color(0xFFFFD700).withOpacity(0.2),
+                    side: const BorderSide(color: Color(0xFFFFD700)),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PaymentScreen(
+                            data: data,
+                            selectedProvider: provider,
+                            slot: slot,
+                          ),
+                        ),
+                      );
+                    },
+                  )),
+                  ActionChip(
+                    label: Text('Pick Custom Date/Time', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: Colors.white)),
+                    backgroundColor: const Color(0xFF1A237E),
+                    side: const BorderSide(color: Color(0xFF1A237E)),
+                    onPressed: () async {
+                      final DateTime? pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 30)),
+                      );
+                      if (pickedDate != null && context.mounted) {
+                        final TimeOfDay? pickedTime = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.now(),
+                        );
+                        if (pickedTime != null && context.mounted) {
+                          final String formattedDate = "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')} ${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PaymentScreen(
+                                data: data,
+                                selectedProvider: provider,
+                                slot: formattedDate,
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  )
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -66,7 +145,7 @@ class ResultsScreen extends StatelessWidget {
                   Expanded(
                     child: Text(reasoning,
                         style: GoogleFonts.outfit(
-                            color: Colors.white, fontSize: 13)),
+                            color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
                   ),
                 ],
               ),
@@ -78,7 +157,7 @@ class ResultsScreen extends StatelessWidget {
             pricing: pricing,
             isRecommended: true,
             reasoning: reasoning,
-            onSelect: () => _goBook(context, provider),
+            onSelect: () => _showSlotPicker(context, provider),
             buttonLabel: 'Accept & Book',
           ),
 
@@ -95,7 +174,7 @@ class ResultsScreen extends StatelessWidget {
             ...others.map((p) => ProviderCard(
                   provider: p,
                   isRecommended: false,
-                  onSelect: () => _goBook(context, p),
+                  onSelect: () => _showSlotPicker(context, p),
                 )),
           ],
         ],
@@ -104,7 +183,7 @@ class ResultsScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: ElevatedButton(
-            onPressed: () => _goBook(context, provider),
+            onPressed: () => _showSlotPicker(context, provider),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFFD700),
               foregroundColor: const Color(0xFF1A237E),

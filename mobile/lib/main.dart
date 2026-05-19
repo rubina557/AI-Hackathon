@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'screens/home_screen.dart';
-import 'screens/logs_screen.dart';
+import 'screens/auth/mode_selection_screen.dart';
 
 void main() {
   runApp(const HireInApp());
@@ -13,54 +11,45 @@ class HireInApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'HireIn – Pakistan Services',
-      debugShowCheckedModeBanner: false,
+      title: 'HireIn Premium',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A237E),
-          brightness: Brightness.light,
-        ).copyWith(
-          primary: const Color(0xFF1A237E),
-          secondary: const Color(0xFFFFD700),
-          surface: Colors.white,
-          onPrimary: Colors.white,
+        scaffoldBackgroundColor: const Color(0xFF111B21), // App Background
+        primaryColor: const Color(0xFF00A884), // Brand Green
+        colorScheme: ColorScheme.fromSwatch().copyWith(
+          primary: const Color(0xFF00A884),
+          secondary: const Color(0xFF00A884),
+          surface: const Color(0xFF202C33), // Card Background
         ),
-        useMaterial3: true,
-        textTheme: GoogleFonts.outfitTextTheme(),
-        appBarTheme: AppBarTheme(
-          backgroundColor: const Color(0xFF1A237E),
-          foregroundColor: Colors.white,
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(color: Color(0xFFE9EDEF)),
+          bodyMedium: TextStyle(color: Color(0xFFE9EDEF)),
+          titleLarge: TextStyle(color: Color(0xFFE9EDEF)),
+          titleMedium: TextStyle(color: Color(0xFFE9EDEF)),
+        ),
+        fontFamily: 'Inter',
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF202C33),
+          foregroundColor: Color(0xFFE9EDEF),
           elevation: 0,
-          titleTextStyle: GoogleFonts.outfit(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFFD700),
-            foregroundColor: const Color(0xFF1A237E),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            textStyle: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 16),
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            backgroundColor: const Color(0xFF00A884),
+            foregroundColor: const Color(0xFF111B21),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        cardTheme: CardThemeData(
+          color: const Color(0xFF202C33),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
-      home: const MainNavigator(),
-      routes: {
-        '/logs': (context) => const LogsScreen(),
-        '/home': (context) => const HomeScreen(),
-      },
+      home: const ModeSelectionScreen(),
+      debugShowCheckedModeBanner: false,
     );
-  }
-}
-
-class MainNavigator extends StatelessWidget {
-  const MainNavigator({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const HomeScreen();
   }
 }

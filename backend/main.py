@@ -31,6 +31,14 @@ class DisputeRequest(BaseModel):
     booking_id: str
     issue: str  # no_show / quality_complaint / price_dispute / overrun / cancellation
 
+class BookRequest(BaseModel):
+    provider_id: str
+    slot: str
+    pricing: dict
+    is_urgent: bool
+    user_lat: float = 25.3960
+    user_lng: float = 68.3578
+
 # ── UTILS ──────────────────────────────────────────────────────────────────────
 def load_providers() -> List[dict]:
     with open(PROVIDERS_PATH, "r", encoding="utf-8") as f:
@@ -189,7 +197,7 @@ def agent2_discovery(intent: dict) -> List[dict]:
         for p in providers:
             if p["category"].lower() == svc.lower():
                 dist = haversine(lat, lng, p["lat"], p["lng"])
-                if dist <= radius:
+                if dist <= radius and len(p.get("available_slots", [])) > 0:
                     pc = p.copy()
                     pc["distance_km"] = round(dist, 2)
                     found.append(pc)
@@ -231,10 +239,14 @@ def agent3_ranking(candidates: List[dict], intent: dict) -> List[dict]:
     SKILL_MAP = {"expert": 10, "intermediate": 6, "basic": 3}
 
     def score_provider(p):
-        rating_score  = (p["rating"] / 5.0) * 0.25
-        dist_score    = (1 / (p["distance_km"] + 1)) * 0.20
+        dist_weight = 0.50 if intent.get("is_urgent") else 0.20
+        rating_weight = 0.10 if intent.get("is_urgent") else 0.25
+        skill_weight = 0.10 if intent.get("is_urgent") else 0.20
+        
+        rating_score  = (p["rating"] / 5.0) * rating_weight
+        dist_score    = (1 / (p["distance_km"] + 1)) * dist_weight
         skill_val     = SKILL_MAP.get(p.get("skill_level", "basic"), 3)
-        skill_score   = (skill_val / 10.0) * 0.20
+        skill_score   = (skill_val / 10.0) * skill_weight
         ontime_score  = p.get("on_time_score", 0.8) * 0.15
         recency_score = max(0, 1 - p.get("review_recency_days", 30) / 30) * 0.10
         cancel_score  = (1 - p.get("cancellation_rate", 0.1)) * 0.05
@@ -369,10 +381,10 @@ def agent5_matchmaker(ranked: List[dict], pricing_list: List[dict], intent: dict
     return winner
 
 # ── AGENT 6: LOCK & BOOK ───────────────────────────────────────────────────────
-def agent6_book(winner: dict, pricing: dict, intent: dict) -> dict:
+def agent6_book(winner: dict, pricing: dict, intent: dict, slot_override: str = None) -> dict:
     ts = now_str()
     booking_id = gen_booking_id()
-    slot = winner["available_slots"][0] if winner["available_slots"] else "2026-05-17 10:00"
+    slot = slot_override if slot_override else (winner.get("available_slots", ["2026-05-17 10:00"])[0])
 
     # Save to CSV
     file_exists = os.path.exists(BOOKINGS_CSV)
@@ -544,12 +556,6 @@ def chat(req: ChatRequest):
     winner = agent5_matchmaker(ranked[:5], pricing_list, intent)
     pricing = pricing_list[0]
 
-    # Agent 6
-    booking = agent6_book(winner, pricing, intent)
-
-    # Agent 7
-    followup = agent7_followup(booking, winner, pricing)
-
     # Build response
     artifacts = [f for f in os.listdir(LOGS_DIR) if f.endswith(".md")]
     other_options = [
@@ -563,8 +569,8 @@ def chat(req: ChatRequest):
     ]
 
     return {
-        "response": f"Booking confirmed! {winner['name']} will arrive at {booking['slot']}.",
-        "booking_id": booking["booking_id"],
+        "response": f"Found top providers for {intent['service_category']}.",
+        "booking_id": None,
         "provider": {
             "id": winner["id"], "name": winner["name"], "category": winner["category"],
             "rating": winner["rating"], "review_count": winner["review_count"],
@@ -577,9 +583,29 @@ def chat(req: ChatRequest):
         "pricing": pricing,
         "reasoning": winner.get("reasoning", ""),
         "is_urgent": intent["is_urgent"],
-        "slot": booking["slot"],
-        "notifications": followup["notifications"],
+        "slot": None,
+        "notifications": [],
         "other_options": other_options,
+        "artifacts": sorted(artifacts),
+    }
+
+@app.post("/book")
+def book(req: BookRequest):
+    providers = load_providers()
+    winner = next((p for p in providers if p["id"] == req.provider_id), None)
+    if not winner:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    intent = {"is_urgent": req.is_urgent}
+    booking = agent6_book(winner, req.pricing, intent, slot_override=req.slot)
+    followup = agent7_followup(booking, winner, req.pricing)
+    
+    artifacts = [f for f in os.listdir(LOGS_DIR) if f.endswith(".md")]
+    return {
+        "booking_id": booking["booking_id"],
+        "slot": booking["slot"],
+        "status": booking["status"],
+        "notifications": followup["notifications"],
         "artifacts": sorted(artifacts),
     }
 

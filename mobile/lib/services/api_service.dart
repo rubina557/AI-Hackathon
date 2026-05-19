@@ -31,6 +31,30 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> bookService({
+    required String providerId,
+    required String slot,
+    required Map<String, dynamic> pricing,
+    required bool isUrgent,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$_base/book'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'provider_id': providerId,
+          'slot': slot,
+          'pricing': pricing,
+          'is_urgent': isUrgent,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) return jsonDecode(res.body);
+      throw Exception('Server error ${res.statusCode}');
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getArtifacts() async {
     try {
       final res = await http.get(Uri.parse('$_base/artifacts'))

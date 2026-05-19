@@ -1,0 +1,20 @@
+{
+  "name": "hirein-functions",
+  "version": "1.0.0",
+  "description": "HireIn Antigravity Backend Pipeline",
+  "main": "index.js",
+  "engines": {
+    "node": "18"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "firebase-admin": "^11.8.0",
+    "firebase-functions": "^4.3.1"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.1.0"
+  },
+  "private": true
+}

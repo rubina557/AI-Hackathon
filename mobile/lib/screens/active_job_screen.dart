@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../services/api_service.dart';
 
 class ActiveJobScreen extends StatefulWidget {
@@ -21,6 +23,7 @@ class ActiveJobScreen extends StatefulWidget {
 
 class _ActiveJobScreenState extends State<ActiveJobScreen> {
   bool _jobComplete = false;
+  int _status = 0; // 0: Confirmed, 1: En Route, 2: Arrived
   double _rating = 0;
   final TextEditingController _commentCtrl = TextEditingController();
   bool _submitting = false;
@@ -28,17 +31,65 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
   int _countdown = 1800; // 30 min in seconds
   Timer? _countdownTimer;
 
+  // Mock locations for tracking
+  final LatLng _userLocation = const LatLng(25.3960, 68.3578);
+  late LatLng _providerLocation;
+
   @override
   void initState() {
     super.initState();
+    // Start provider a bit further away
+    _providerLocation = const LatLng(25.4050, 68.3650);
+
+    // Initial delay before moving to "En Route"
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() => _status = 1);
+        _showNotification('En Route', '${widget.providerName} is on the way!');
+      }
+    });
+
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_countdown > 0) {
-        setState(() => _countdown--);
+        setState(() {
+          _countdown--;
+          // Simulate movement
+          if (_status == 1) {
+            _providerLocation = LatLng(
+              _providerLocation.latitude - (_providerLocation.latitude - _userLocation.latitude) * 0.05,
+              _providerLocation.longitude - (_providerLocation.longitude - _userLocation.longitude) * 0.05,
+            );
+          }
+          if (_countdown == 300 && _status == 1) {
+            _status = 2; // Arriving soon
+            _showNotification('Arriving Soon', '${widget.providerName} is almost there!');
+          }
+        });
       } else {
         t.cancel();
         setState(() => _jobComplete = true);
       }
     });
+  }
+
+  void _showNotification(String title, String body) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(body, style: GoogleFonts.outfit()),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1A237E),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+      )
+    );
   }
 
   @override
@@ -95,31 +146,80 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Map
           Container(
-            width: 120, height: 120,
+            height: 200,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF1A237E).withOpacity(0.08),
-              border: Border.all(color: const Color(0xFF1A237E), width: 2),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))
+              ],
             ),
-            child: const Icon(Icons.directions_car_rounded,
-                color: Color(0xFF1A237E), size: 52),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: _userLocation,
+                  initialZoom: 14.0,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.hirein.app',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _userLocation,
+                        width: 40, height: 40,
+                        child: const Icon(Icons.home_rounded, color: Color(0xFF1A237E), size: 32),
+                      ),
+                      Marker(
+                        point: _providerLocation,
+                        width: 40, height: 40,
+                        child: const Icon(Icons.directions_car_rounded, color: Color(0xFFE50000), size: 36),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 24),
-          Text('Provider En Route',
+          
+          // Timeline
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildTimelineNode('Confirmed', 0),
+              _buildTimelineLine(1),
+              _buildTimelineNode('En Route', 1),
+              _buildTimelineLine(2),
+              _buildTimelineNode('Arrived', 2),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          Center(
+            child: Text(
+              _status == 0 ? 'Provider Assigned' : _status == 1 ? 'Provider En Route' : 'Provider Arrived',
               style: GoogleFonts.outfit(
                   fontSize: 22, fontWeight: FontWeight.w800,
                   color: const Color(0xFF1A237E))),
+          ),
           const SizedBox(height: 6),
-          Text('${widget.providerName} is on the way!',
-              style: GoogleFonts.outfit(
-                  fontSize: 14, color: Colors.grey.shade600)),
-          const SizedBox(height: 32),
+          Center(
+            child: Text('${widget.providerName} is ${_status == 0 ? "preparing" : "on the way!"}',
+                style: GoogleFonts.outfit(
+                    fontSize: 14, color: Colors.grey.shade600)),
+          ),
+          const SizedBox(height: 24),
+
           // Countdown
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 40),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 40),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                   colors: [Color(0xFF1A237E), Color(0xFF283593)]),
@@ -134,23 +234,24 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
                 Text(_countdownStr,
                     style: GoogleFonts.outfit(
                         color: Colors.white,
-                        fontSize: 48,
+                        fontSize: 40,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 4)),
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const Spacer(),
+          
           Text('Appointment: ${widget.slot}',
               style: GoogleFonts.outfit(
                   fontSize: 14, color: Colors.grey.shade600)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text('Booking: ${widget.bookingId}',
               style: GoogleFonts.outfit(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF1A237E))),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
           OutlinedButton(
             onPressed: () => setState(() => _jobComplete = true),
             style: OutlinedButton.styleFrom(
@@ -163,6 +264,35 @@ class _ActiveJobScreenState extends State<ActiveJobScreen> {
                 style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineNode(String label, int stepIndex) {
+    bool isActive = _status >= stepIndex;
+    return Column(
+      children: [
+        Container(
+          width: 24, height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isActive ? const Color(0xFF1A237E) : Colors.grey.shade300,
+          ),
+          child: isActive ? const Icon(Icons.check_rounded, size: 14, color: Colors.white) : null,
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: GoogleFonts.outfit(fontSize: 12, color: isActive ? const Color(0xFF1A237E) : Colors.grey.shade500, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal)),
+      ],
+    );
+  }
+
+  Widget _buildTimelineLine(int stepIndex) {
+    bool isActive = _status >= stepIndex;
+    return Expanded(
+      child: Container(
+        height: 2,
+        color: isActive ? const Color(0xFF1A237E) : Colors.grey.shade300,
+        margin: const EdgeInsets.only(bottom: 20), // align with circle centers
       ),
     );
   }
